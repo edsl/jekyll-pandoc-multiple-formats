@@ -28,21 +28,12 @@ class PandocGenerator < Generator
 
   attr_accessor :site, :config
 
-  def doc_attr_hash(doc_attr)
+  def doc_categories_hash()
     hash = Hash.new { |h, key| h[key] = [] }
 
     @site.collections.each do |name, collection|
-      if collection.metadata['archive']
-        collection.docs.each do |d|
-          case doc_attr
-          when 'tags'
-            d.data['tags'].each { |t| hash[t] << d } if d.data['tags']
-          when 'categories'
-            d.data['categories'].each { |t| hash[t] << d } if d.data['categories']
-          when 'years'
-            hash[d.date.strftime("%Y")] << d
-          end
-        end
+      collection.docs.each do |doc|
+        doc.data['categories'].each { |t| hash[t] << doc } if doc.data['categories']
       end
     end
 
@@ -81,7 +72,7 @@ class PandocGenerator < Generator
 
       def categories
         if Jekyll::VERSION >= '3.0.0'
-          doc_attr_hash('categories')
+          doc_categories_hash()
         else
           @site.post_attr_hash('categories')
         end
