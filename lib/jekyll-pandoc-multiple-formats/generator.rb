@@ -28,6 +28,19 @@ class PandocGenerator < Generator
 
   attr_accessor :site, :config
 
+  def doc_categories_hash()
+    hash = Hash.new { |h, key| h[key] = [] }
+
+    @site.collections.each do |name, collection|
+      collection.docs.each do |doc|
+        doc.data['categories'].each { |t| hash[t] << doc } if doc.data['categories']
+      end
+    end
+
+    hash.values.each { |posts| posts.sort!.reverse! }
+    hash
+  end
+
   def generate(site)
     @site     ||= site
     @config   ||= JekyllPandocMultipleFormats::Config.new(@site.config['pandoc'])
@@ -50,9 +63,31 @@ class PandocGenerator < Generator
         @pandoc_files << pandoc_file
       end
 
-      @site.post_attr_hash('categories').each_pair do |title, posts|
-        posts.sort!
-        pandoc_file = PandocFile.new(@site, output, posts, title)
+      @site.collections.each do |name, collection|
+        collection.docs.each do |doc|
+          pandoc_file = PandocFile.new(@site, output, doc)
+          next unless pandoc_file.write
+
+          @site.keep_files << pandoc_file.relative_path
+          @pandoc_files << pandoc_file
+        end
+      end
+
+      def categories
+        if Jekyll::VERSION >= '3.0.0'
+          doc_categories_hash()
+        else
+          @site.post_attr_hash('categories')
+        end
+      end
+
+      categories.each_pair do |title, docs|
+
+        sorted_docs = docs.sort_by { | doc |
+          doc.data["order"] || 10000
+        }
+
+        pandoc_file = PandocFile.new(@site, output, sorted_docs, title)
 
         if @site.keep_files.include? pandoc_file.relative_path
           puts "#{pandoc_file.relative_path} is a category file AND a post file"
